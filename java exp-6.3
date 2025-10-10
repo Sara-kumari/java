@@ -1,0 +1,150 @@
+// ===== MODEL =====
+package model;
+
+public class Student {
+    private int id;
+    private String name;
+    private int age;
+    private String grade;
+
+    public Student() {}
+    public Student(int id, String name, int age, String grade) {
+        this.id = id;
+        this.name = name;
+        this.age = age;
+        this.grade = grade;
+    }
+
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public int getAge() { return age; }
+    public void setAge(int age) { this.age = age; }
+    public String getGrade() { return grade; }
+    public void setGrade(String grade) { this.grade = grade; }
+
+    @Override
+    public String toString() {
+        return "Student [id=" + id + ", name=" + name + ", age=" + age + ", grade=" + grade + "]";
+    }
+}
+
+// ===== DAO =====
+package dao;
+import java.sql.*;
+import java.util.*;
+import model.Student;
+
+public class StudentDAO {
+    private Connection connect() throws SQLException {
+        return DriverManager.getConnection("jdbc:mysql://localhost:3306/school", "root", "yourpassword");
+    }
+
+    public void insertStudent(Student s) {
+        String sql = "INSERT INTO students(name, age, grade) VALUES (?, ?, ?)";
+        try (Connection con = connect(); PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, s.getName());
+            ps.setInt(2, s.getAge());
+            ps.setString(3, s.getGrade());
+            ps.executeUpdate();
+        } catch (SQLException e) { e.printStackTrace(); }
+    }
+
+    public List<Student> getAllStudents() {
+        List<Student> list = new ArrayList<>();
+        String sql = "SELECT * FROM students";
+        try (Connection con = connect(); Statement st = con.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) {
+                list.add(new Student(rs.getInt("id"), rs.getString("name"), rs.getInt("age"), rs.getString("grade")));
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return list;
+    }
+
+    public void updateStudent(Student s) {
+        String sql = "UPDATE students SET name=?, age=?, grade=? WHERE id=?";
+        try (Connection con = connect(); PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, s.getName());
+            ps.setInt(2, s.getAge());
+            ps.setString(3, s.getGrade());
+            ps.setInt(4, s.getId());
+            ps.executeUpdate();
+        } catch (SQLException e) { e.printStackTrace(); }
+    }
+
+    public void deleteStudent(int id) {
+        String sql = "DELETE FROM students WHERE id=?";
+        try (Connection con = connect(); PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            ps.executeUpdate();
+        } catch (SQLException e) { e.printStackTrace(); }
+    }
+}
+
+// ===== CONTROLLER =====
+package controller;
+import dao.StudentDAO;
+import model.Student;
+import java.util.List;
+
+public class StudentController {
+    private StudentDAO dao = new StudentDAO();
+
+    public void addStudent(String name, int age, String grade) {
+        dao.insertStudent(new Student(0, name, age, grade));
+    }
+
+    public List<Student> viewStudents() {
+        return dao.getAllStudents();
+    }
+
+    public void updateStudent(int id, String name, int age, String grade) {
+        dao.updateStudent(new Student(id, name, age, grade));
+    }
+
+    public void deleteStudent(int id) {
+        dao.deleteStudent(id);
+    }
+}
+
+// ===== VIEW =====
+package view;
+import controller.StudentController;
+import model.Student;
+import java.util.Scanner;
+
+public class MainApp {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        StudentController controller = new StudentController();
+        while (true) {
+            System.out.println("\n1.Add 2.View 3.Update 4.Delete 5.Exit");
+            int ch = sc.nextInt();
+            switch (ch) {
+                case 1:
+                    System.out.print("Name: "); String name = sc.next();
+                    System.out.print("Age: "); int age = sc.nextInt();
+                    System.out.print("Grade: "); String grade = sc.next();
+                    controller.addStudent(name, age, grade);
+                    break;
+                case 2:
+                    for (Student s : controller.viewStudents()) System.out.println(s);
+                    break;
+                case 3:
+                    System.out.print("ID: "); int idu = sc.nextInt();
+                    System.out.print("Name: "); String nameU = sc.next();
+                    System.out.print("Age: "); int ageU = sc.nextInt();
+                    System.out.print("Grade: "); String gradeU = sc.next();
+                    controller.updateStudent(idu, nameU, ageU, gradeU);
+                    break;
+                case 4:
+                    System.out.print("ID: "); int idd = sc.nextInt();
+                    controller.deleteStudent(idd);
+                    break;
+                case 5:
+                    System.exit(0);
+            }
+        }
+    }
+}
