@@ -1,0 +1,280 @@
+Part A — Dependency Injection in Spring (Java Config)
+Course.java
+java
+
+package com.springdi;
+
+public class Course {
+    private String name;
+    public Course(String name) { this.name = name; }
+    public String getCourseName() { return name; }
+}
+Student.java
+java
+
+package com.springdi;
+
+public class Student {
+    private Course course;
+    public Student(Course course) { this.course = course; }
+    public void showInfo() {
+        System.out.println("Enrolled in: " + course.getCourseName());
+    }
+}
+AppConfig.java
+java
+
+package com.springdi;
+
+import org.springframework.context.annotation.*;
+
+@Configuration
+public class AppConfig {
+    @Bean
+    public Course course() { return new Course("Spring Framework"); }
+
+    @Bean
+    public Student student() { return new Student(course()); }
+}
+MainApp.java
+java
+
+package com.springdi;
+
+import org.springframework.context.annotation.*;
+
+public class MainApp {
+    public static void main(String[] args) {
+        AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext(AppConfig.class);
+        Student s = ctx.getBean(Student.class);
+        s.showInfo();
+        ctx.close();
+    }
+}
+🅑 Part B — Hibernate Student CRUD
+Student.java
+java
+
+package com.hibernatecrud;
+
+import javax.persistence.*;
+
+@Entity
+@Table(name="student")
+public class Student {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+    private String name;
+    private int marks;
+
+    public Student() {}
+    public Student(String name, int marks) {
+        this.name = name; this.marks = marks;
+    }
+    public int getId() { return id; }
+    public String getName() { return name; }
+    public int getMarks() { return marks; }
+    public void setMarks(int marks) { this.marks = marks; }
+}
+hibernate.cfg.xml
+xml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-configuration PUBLIC "-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-configuration-3.0.dtd">
+<hibernate-configuration>
+ <session-factory>
+  <property name="hibernate.connection.driver_class">com.mysql.cj.jdbc.Driver</property>
+  <property name="hibernate.connection.url">jdbc:mysql://localhost:3306/springdb</property>
+  <property name="hibernate.connection.username">root</property>
+  <property name="hibernate.connection.password">root</property>
+  <property name="hibernate.dialect">org.hibernate.dialect.MySQL8Dialect</property>
+  <property name="hibernate.hbm2ddl.auto">update</property>
+  <property name="show_sql">true</property>
+  <mapping class="com.hibernatecrud.Student"/>
+ </session-factory>
+</hibernate-configuration>
+StudentCRUD.java
+java
+
+package com.hibernatecrud;
+
+import org.hibernate.*;
+import org.hibernate.cfg.Configuration;
+import java.util.*;
+
+public class StudentCRUD {
+    public static void main(String[] args) {
+        SessionFactory sf = new Configuration().configure().buildSessionFactory();
+        Session s = sf.openSession();
+        Scanner sc = new Scanner(System.in);
+        Transaction t;
+        System.out.println("1.Add 2.Read 3.Update 4.Delete:");
+        int ch = sc.nextInt();
+        switch (ch) {
+            case 1:
+                t = s.beginTransaction();
+                s.save(new Student("Alice", 88));
+                t.commit();
+                break;
+            case 2:
+                List<Student> list = s.createQuery("from Student").list();
+                for (Student st : list)
+                    System.out.println(st.getId() + " " + st.getName() + " " + st.getMarks());
+                break;
+            case 3:
+                t = s.beginTransaction();
+                Student st = s.get(Student.class, 1);
+                st.setMarks(95);
+                s.update(st);
+                t.commit();
+                break;
+            case 4:
+                t = s.beginTransaction();
+                Student st2 = s.get(Student.class, 1);
+                s.delete(st2);
+                t.commit();
+                break;
+        }
+        s.close();
+        sf.close();
+    }
+}
+🅒 Part C — Transaction Management (Spring + Hibernate)
+Account.java
+java
+
+package com.springtx;
+
+import javax.persistence.*;
+
+@Entity
+@Table(name="account")
+public class Account {
+    @Id
+    private int accId;
+    private String name;
+    private double balance;
+
+    public Account() {}
+    public Account(int id, String n, double b) {
+        this.accId = id; this.name = n; this.balance = b;
+    }
+    public int getAccId() { return accId; }
+    public double getBalance() { return balance; }
+    public void setBalance(double balance) { this.balance = balance; }
+}
+AccountDAO.java
+java
+
+package com.springtx;
+
+import javax.persistence.*;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public class AccountDAO {
+    @PersistenceContext
+    private EntityManager em;
+
+    public Account get(int id) { return em.find(Account.class, id); }
+    public void update(Account a) { em.merge(a); }
+}
+AccountService.java
+java
+
+package com.springtx;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class AccountService {
+    private final AccountDAO dao;
+    public AccountService(AccountDAO dao) { this.dao = dao; }
+
+    @Transactional
+    public void transfer(int fromId, int toId, double amt) {
+        Account a1 = dao.get(fromId);
+        Account a2 = dao.get(toId);
+        a1.setBalance(a1.getBalance() - amt);
+        a2.setBalance(a2.getBalance() + amt);
+        dao.update(a1);
+        dao.update(a2);
+    }
+}
+AppConfig.java
+java
+
+package com.springtx;
+
+import org.springframework.context.annotation.*;
+import org.springframework.orm.jpa.*;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import javax.persistence.EntityManagerFactory;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+
+@Configuration
+@EnableTransactionManagement
+@ComponentScan(basePackages = "com.springtx")
+public class AppConfig {
+    @Bean
+    public DriverManagerDataSource dataSource() {
+        DriverManagerDataSource ds = new DriverManagerDataSource();
+        ds.setDriverClassName("com.mysql.cj.jdbc.Driver");
+        ds.setUrl("jdbc:mysql://localhost:3306/springdb");
+        ds.setUsername("root");
+        ds.setPassword("root");
+        return ds;
+    }
+
+    @Bean
+    public LocalContainerEntityManagerFactoryBean entityManagerFactory() {
+        LocalContainerEntityManagerFactoryBean emf = new LocalContainerEntityManagerFactoryBean();
+        emf.setDataSource(dataSource());
+        emf.setPackagesToScan("com.springtx");
+        emf.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+        return emf;
+    }
+
+    @Bean
+    public JpaTransactionManager txManager(EntityManagerFactory emf) {
+        return new JpaTransactionManager(emf);
+    }
+}
+MainApp.java
+java
+Copy code
+package com.springtx;
+
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
+public class MainApp {
+    public static void main(String[] args) {
+        AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext(AppConfig.class);
+        AccountService service = ctx.getBean(AccountService.class);
+        service.transfer(1, 2, 500);
+        System.out.println("Transfer Successful");
+        ctx.close();
+    }
+}
+🧱 Database Setup (MySQL)
+sql
+Copy code
+CREATE DATABASE springdb;
+USE springdb;
+
+CREATE TABLE student (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(50),
+  marks INT
+);
+
+CREATE TABLE account (
+  accId INT PRIMARY KEY,
+  name VARCHAR(50),
+  balance DOUBLE
+);
+
+INSERT INTO account VALUES (1, 'Alice', 2000), (2, 'Bob', 1500);
