@@ -1,0 +1,202 @@
+Part A – Connecting to MySQL and Fetching Employee Data
+java
+Copy code
+import java.sql.*;
+
+public class FetchEmployeeData {
+    public static void main(String[] args) {
+        String url = "jdbc:mysql://localhost:3306/companydb";
+        String user = "root";
+        String pass = "root";
+
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            Connection con = DriverManager.getConnection(url, user, pass);
+            Statement stmt = con.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT EmpID, Name, Salary FROM Employee");
+
+            System.out.println("EmpID\tName\tSalary");
+            while (rs.next())
+                System.out.println(rs.getInt(1) + "\t" + rs.getString(2) + "\t" + rs.getDouble(3));
+
+            rs.close();
+            stmt.close();
+            con.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+
+
+
+Part B – CRUD Operations on Product Table
+java
+Copy code
+import java.sql.*;
+import java.util.*;
+
+public class ProductCRUD {
+    static final String URL = "jdbc:mysql://localhost:3306/companydb";
+    static final String USER = "root";
+    static final String PASS = "root";
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        try (Connection con = DriverManager.getConnection(URL, USER, PASS)) {
+            con.setAutoCommit(false);
+            int ch;
+            do {
+                System.out.println("\n1.Insert  2.Display  3.Update  4.Delete  5.Exit");
+                ch = sc.nextInt();
+                switch (ch) {
+                    case 1 -> insert(con, sc);
+                    case 2 -> display(con);
+                    case 3 -> update(con, sc);
+                    case 4 -> delete(con, sc);
+                }
+            } while (ch != 5);
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    static void insert(Connection con, Scanner sc) throws Exception {
+        System.out.print("ID Name Price Qty: ");
+        int id = sc.nextInt(); String name = sc.next(); double price = sc.nextDouble(); int qty = sc.nextInt();
+        String q = "INSERT INTO Product VALUES(?,?,?,?)";
+        try (PreparedStatement ps = con.prepareStatement(q)) {
+            ps.setInt(1,id); ps.setString(2,name); ps.setDouble(3,price); ps.setInt(4,qty);
+            ps.executeUpdate(); con.commit(); System.out.println("Inserted.");
+        } catch (SQLException e){ con.rollback(); }
+    }
+
+    static void display(Connection con) throws Exception {
+        try (Statement s = con.createStatement(); ResultSet r = s.executeQuery("SELECT * FROM Product")) {
+            while (r.next())
+                System.out.printf("%d %s %.2f %d%n", r.getInt(1), r.getString(2), r.getDouble(3), r.getInt(4));
+        }
+    }
+
+    static void update(Connection con, Scanner sc) throws Exception {
+        System.out.print("ID NewPrice: ");
+        int id = sc.nextInt(); double p = sc.nextDouble();
+        String q = "UPDATE Product SET Price=? WHERE ProductID=?";
+        try (PreparedStatement ps = con.prepareStatement(q)) {
+            ps.setDouble(1,p); ps.setInt(2,id);
+            if(ps.executeUpdate()>0){ con.commit(); System.out.println("Updated."); }
+        } catch (SQLException e){ con.rollback(); }
+    }
+
+    static void delete(Connection con, Scanner sc) throws Exception {
+        System.out.print("ID to delete: ");
+        int id = sc.nextInt();
+        String q = "DELETE FROM Product WHERE ProductID=?";
+        try (PreparedStatement ps = con.prepareStatement(q)) {
+            ps.setInt(1,id);
+            if(ps.executeUpdate()>0){ con.commit(); System.out.println("Deleted."); }
+        } catch (SQLException e){ con.rollback(); }
+    }
+}
+
+
+
+
+
+
+
+
+Part C – Student Management Using JDBC + MVC
+Student.java
+java
+Copy code
+public class Student {
+    private int id;
+    private String name, dept;
+    private double marks;
+
+    public Student(int id, String name, String dept, double marks) {
+        this.id=id; this.name=name; this.dept=dept; this.marks=marks;
+    }
+    public int getId(){ return id; }
+    public String getName(){ return name; }
+    public String getDept(){ return dept; }
+    public double getMarks(){ return marks; }
+
+    public String toString(){ return id+" "+name+" "+dept+" "+marks; }
+}
+StudentDAO.java
+java
+Copy code
+import java.sql.*;
+import java.util.*;
+
+public class StudentDAO {
+    static final String URL="jdbc:mysql://localhost:3306/schooldb";
+    static final String USER="root", PASS="root";
+
+    public void add(Student s)throws Exception{
+        String q="INSERT INTO Student VALUES(?,?,?,?)";
+        try(Connection c=DriverManager.getConnection(URL,USER,PASS);
+            PreparedStatement p=c.prepareStatement(q)){
+            p.setInt(1,s.getId()); p.setString(2,s.getName());
+            p.setString(3,s.getDept()); p.setDouble(4,s.getMarks());
+            p.executeUpdate(); System.out.println("Added.");
+        }
+    }
+
+    public List<Student> all()throws Exception{
+        List<Student> l=new ArrayList<>();
+        try(Connection c=DriverManager.getConnection(URL,USER,PASS);
+            Statement s=c.createStatement();
+            ResultSet r=s.executeQuery("SELECT * FROM Student")){
+            while(r.next()) l.add(new Student(r.getInt(1),r.getString(2),r.getString(3),r.getDouble(4)));
+        }
+        return l;
+    }
+
+    public void updateMarks(int id,double m)throws Exception{
+        try(Connection c=DriverManager.getConnection(URL,USER,PASS);
+            PreparedStatement p=c.prepareStatement("UPDATE Student SET Marks=? WHERE StudentID=?")){
+            p.setDouble(1,m); p.setInt(2,id); p.executeUpdate(); System.out.println("Updated.");
+        }
+    }
+
+    public void delete(int id)throws Exception{
+        try(Connection c=DriverManager.getConnection(URL,USER,PASS);
+            PreparedStatement p=c.prepareStatement("DELETE FROM Student WHERE StudentID=?")){
+            p.setInt(1,id); p.executeUpdate(); System.out.println("Deleted.");
+        }
+    }
+}
+StudentApp.java
+java
+Copy code
+import java.util.*;
+
+public class StudentApp {
+    public static void main(String[] a)throws Exception{
+        Scanner sc=new Scanner(System.in);
+        StudentDAO dao=new StudentDAO();
+        int ch;
+        do{
+            System.out.println("\n1.Add 2.View 3.Update 4.Delete 5.Exit");
+            ch=sc.nextInt();
+            switch(ch){
+                case 1->{
+                    System.out.print("ID Name Dept Marks: ");
+                    int id=sc.nextInt(); String n=sc.next(); String d=sc.next(); double m=sc.nextDouble();
+                    dao.add(new Student(id,n,d,m));
+                }
+                case 2->dao.all().forEach(System.out::println);
+                case 3->{
+                    System.out.print("ID NewMarks: ");
+                    dao.updateMarks(sc.nextInt(),sc.nextDouble());
+                }
+                case 4->{
+                    System.out.print("ID: "); dao.delete(sc.nextInt());
+                }
+            }
+        }while(ch!=5);
+    }
+}
+
