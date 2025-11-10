@@ -1,0 +1,188 @@
+Part A – User Login Using Servlet and HTML
+login.html
+html
+Copy code
+<!DOCTYPE html>
+<html>
+<head><title>Login</title></head>
+<body>
+<h2>User Login</h2>
+<form action="LoginServlet" method="post">
+    Username: <input type="text" name="username"><br><br>
+    Password: <input type="password" name="password"><br><br>
+    <input type="submit" value="Login">
+</form>
+</body>
+</html>
+LoginServlet.java
+java
+Copy code
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+
+public class LoginServlet extends HttpServlet {
+    protected void doPost(HttpServletRequest req, HttpServletResponse res)
+            throws ServletException, IOException {
+        res.setContentType("text/html");
+        PrintWriter out = res.getWriter();
+
+        String u = req.getParameter("username");
+        String p = req.getParameter("password");
+
+        if ("admin".equals(u) && "1234".equals(p))
+            out.println("<h2>Welcome, " + u + "!</h2>");
+        else
+            out.println("<h3>Invalid username or password.</h3>");
+    }
+}
+web.xml
+xml
+Copy code
+<web-app>
+  <servlet>
+    <servlet-name>LoginServlet</servlet-name>
+    <servlet-class>LoginServlet</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>LoginServlet</servlet-name>
+    <url-pattern>/LoginServlet</url-pattern>
+  </servlet-mapping>
+</web-app>
+🅑 Part B – Display Employee Records Using Servlet + JDBC
+employee.html
+html
+Copy code
+<!DOCTYPE html>
+<html>
+<head><title>Employee Records</title></head>
+<body>
+<h2>Search Employee</h2>
+<form action="EmployeeServlet" method="get">
+    Enter Employee ID: <input type="text" name="empid">
+    <input type="submit" value="Search">
+</form>
+<br><a href="EmployeeServlet">Show All Employees</a>
+</body>
+</html>
+EmployeeServlet.java
+java
+Copy code
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.sql.*;
+
+public class EmployeeServlet extends HttpServlet {
+    protected void doGet(HttpServletRequest req, HttpServletResponse res)
+            throws ServletException, IOException {
+        res.setContentType("text/html");
+        PrintWriter out = res.getWriter();
+
+        String id = req.getParameter("empid");
+        String url = "jdbc:mysql://localhost:3306/companydb";
+        String user = "root", pass = "root";
+
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            Connection con = DriverManager.getConnection(url, user, pass);
+            Statement st;
+            ResultSet rs;
+            if (id != null && !id.isEmpty()) {
+                st = con.createStatement();
+                rs = st.executeQuery("SELECT * FROM Employee WHERE EmpID=" + id);
+            } else {
+                st = con.createStatement();
+                rs = st.executeQuery("SELECT * FROM Employee");
+            }
+
+            out.println("<table border='1'><tr><th>ID</th><th>Name</th><th>Salary</th></tr>");
+            while (rs.next())
+                out.println("<tr><td>" + rs.getInt(1) + "</td><td>" + rs.getString(2) +
+                            "</td><td>" + rs.getDouble(3) + "</td></tr>");
+            out.println("</table>");
+            con.close();
+        } catch (Exception e) {
+            out.println("<p>Error: " + e.getMessage() + "</p>");
+        }
+    }
+}
+web.xml (add this mapping)
+xml
+Copy code
+<servlet>
+  <servlet-name>EmployeeServlet</servlet-name>
+  <servlet-class>EmployeeServlet</servlet-class>
+</servlet>
+<servlet-mapping>
+  <servlet-name>EmployeeServlet</servlet-name>
+  <url-pattern>/EmployeeServlet</url-pattern>
+</servlet-mapping>
+🅒 Part C – Student Attendance Portal Using JSP + Servlet
+attendance.jsp
+jsp
+Copy code
+<!DOCTYPE html>
+<html>
+<head><title>Student Attendance</title></head>
+<body>
+<h2>Attendance Form</h2>
+<form action="AttendanceServlet" method="post">
+    Student ID: <input type="text" name="sid"><br><br>
+    Date: <input type="date" name="date"><br><br>
+    Status:
+    <select name="status">
+        <option>Present</option>
+        <option>Absent</option>
+    </select><br><br>
+    <input type="submit" value="Submit">
+</form>
+</body>
+</html>
+AttendanceServlet.java
+java
+Copy code
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.sql.*;
+
+public class AttendanceServlet extends HttpServlet {
+    protected void doPost(HttpServletRequest req, HttpServletResponse res)
+            throws ServletException, IOException {
+        res.setContentType("text/html");
+        PrintWriter out = res.getWriter();
+
+        String sid = req.getParameter("sid");
+        String date = req.getParameter("date");
+        String status = req.getParameter("status");
+
+        String url = "jdbc:mysql://localhost:3306/schooldb";
+        String user = "root", pass = "root";
+
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            Connection con = DriverManager.getConnection(url, user, pass);
+            PreparedStatement ps = con.prepareStatement("INSERT INTO Attendance VALUES(?,?,?)");
+            ps.setInt(1, Integer.parseInt(sid));
+            ps.setString(2, date);
+            ps.setString(3, status);
+            ps.executeUpdate();
+            con.close();
+            out.println("<h3>Attendance recorded successfully!</h3>");
+        } catch (Exception e) {
+            out.println("<p>Error: " + e.getMessage() + "</p>");
+        }
+    }
+}
+web.xml (add final mapping)
+xml
+Copy code
+<servlet>
+  <servlet-name>AttendanceServlet</servlet-name>
+  <servlet-class>AttendanceServlet</servlet-class>
+</servlet>
+<servlet-mapping>
+  <servlet-name>AttendanceServlet</servlet-name>
+  <url-pattern>/AttendanceServlet</url-pattern>
+</servlet-mapping>
